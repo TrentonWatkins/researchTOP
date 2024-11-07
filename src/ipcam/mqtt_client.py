@@ -12,7 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+
+#TODO: Make sure that paho is imported correctly on machine!
+
 import time
 import paho.mqtt.client as paho
 from paho import mqtt
