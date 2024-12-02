@@ -1,47 +1,64 @@
 #Copyright Hayden Rose VMI CIS
-import paho.mqtt.client as paho
-from paho import mqtt
+import openai
+from paho.mqtt import client as mqtt_client
 
-mqtt_URL = "8cbb7932157b4db5bcefcb9d34a1105a.s1.eu.hivemq.cloud"
+broker = 'p85773ae.ala.us-east-1.emqxsl.com'
 port = 8883
-# setting callbacks for different events to see if it works, print the message etc.
-def on_connect(client, userdata, flags, rc, properties=None):
-    print("CONNACK received with code %s." % rc)
+topic = "python/mqtt"
+# generate client ID with pub prefix randomly
+client_id = 'Reader'
+username = 'emqx'
+password = '**********'
+info = ""
+openai.api_key = "API_KEY"
 
-# with this callback you can see if your publish was successful
-def on_publish(client, userdata, mid, properties=None):
-    print("mid: " + str(mid))
 
-# print which topic was subscribed to
-def on_subscribe(client, userdata, mid, granted_qos, properties=None):
-    print("Subscribed: " + str(mid) + " " + str(granted_qos))
 
-# print message, useful for checking if it was successful
-def on_message(client, userdata, msg):
-    print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
 
-# using MQTT version 5 here, for 3.1.1: MQTTv311, 3.1: MQTTv31
-# userdata is user defined data of any type, updated by user_data_set()
-# client_id is the given name of the client
-client = paho.Client(client_id="", userdata=None, protocol=paho.MQTTv5)
-client.on_connect = on_connect
+def connect_mqtt() -> mqtt_client:
+    def on_connect(client, userdata, flags, rc):
+        if rc == 0:
+            print("Connected to MQTT Broker!")
+        else:
+            print("Failed to connect, return code %d\n", rc)
 
-# enable TLS for secure connection
-client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
-# set username and password
-client.username_pw_set("admin", "popedid911")
-# connect to HiveMQ Cloud on port 8883 (default for MQTT)
-client.connect("mqtt_URL", port)
+    client = mqtt_client.Client(client_id)
+    # client.tls_set(ca_certs='./server-ca.crt')
+    client.username_pw_set(username, password)
+    client.on_connect = on_connect
+    client.connect(broker, port)
+    return client
 
-# setting callbacks, use separate functions like above for better visibility
-client.on_subscribe = on_subscribe
-client.on_message = on_message
-client.on_publish = on_publish
 
-# subscribe to all topics of encyclopedia by using the wildcard "#"
+def subscribe(client: mqtt_client):
+    def on_message(client, userdata, msg):
+        info = (f" `{msg.payload.decode()}`   `{msg.topic}`")
+        ai_response = send_to_openai(info)
+        if ai_response:
+            print(f"OpenAI Response: {ai_response}")
+        else:
+            print("Failed to get a response from OpenAI.")
+    client.subscribe(topic)
+    client.on_message = on_message
+    
+    
 
-print(client.subscribe("#test", qos=0))
+def send_to_openai(message):
+    try:
+        # Send the MQTT message to OpenAI for processing
+        response = openai.Completion.create(engine="text-davinci-003",  # Replace with desired model
+            prompt=f"Process this message: {message}",max_tokens=50)
+        # Extract and return the generated response
+        return response.choices[0].text.strip()
+    except Exception as e:
+        print(f"Error interacting with OpenAI: {e}")
+        return None
 
-# loop_forever for simplicity, here you need to stop the loop manually
-# you can also use loop_start and loop_stop
-client.loop_forever()
+def run():
+    client = connect_mqtt()
+    subscribe(client)
+    client.loop_forever()
+    
+if __name__ == '__main__':
+    run()
+
