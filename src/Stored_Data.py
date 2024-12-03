@@ -11,3 +11,14 @@ print(number_of_pages)
 
 messsage = send_to_openai("Store the following PDF file in memory to reffrance when needed ")
 ai_response = send_to_openai(read_pdf)
+
+def send_to_openai(message):
+    try:
+        # Send the MQTT message to OpenAI for processing
+        response = openai.Completion.create(engine="text-davinci-003",  # Replace with desired model
+            prompt=f"Process this message: {message}",max_tokens=50)
+        # Extract and return the generated response
+        return response.choices[0].text.strip()
+    except Exception as e:
+        print(f"Error interacting with OpenAI: {e}")
+        return None
