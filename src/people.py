@@ -51,6 +51,11 @@ for i in range(detections.shape[2]):
 
 # Display the result
 print(f"Number of people detected: {person_count}")
+    if person_count >= 4:
+        print("Procede with cation ")
+    else:
+        print("Procede as normal ")
+There is this for the people file #Smoke out 
 cv2.imshow("Detected People", image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
