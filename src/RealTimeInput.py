@@ -1,48 +1,12 @@
-#Copyright Hayden Rose VMI CIS
-import openai
-from paho.mqtt import client as mqtt_client
 
-broker = 'p85773ae.ala.us-east-1.emqxsl.com'
-port = 8883
-topic = "python/mqtt"
-# generate client ID with pub prefix randomly
-client_id = 'Reader'
-username = 'emqx'
-password = '**********'
+import openai
+import paho.mqtt.client as mqtt
+import people.py
+
+MQTT_SERVER = "mqtt.eclipseprojects.io"  #Write Server IP Address
+MQTT_PATH = "Image"
 info = ""
 openai.api_key = "API_KEY"
-
-
-
-
-def connect_mqtt() -> mqtt_client:
-    def on_connect(client, userdata, flags, rc):
-        if rc == 0:
-            print("Connected to MQTT Broker!")
-        else:
-            print("Failed to connect, return code %d\n", rc)
-
-    client = mqtt_client.Client(client_id)
-    # client.tls_set(ca_certs='./server-ca.crt')
-    client.username_pw_set(username, password)
-    client.on_connect = on_connect
-    client.connect(broker, port)
-    return client
-
-
-def subscribe(client: mqtt_client):
-    def on_message(client, userdata, msg):
-        info = (f" `{msg.payload.decode()}`   `{msg.topic}`")
-        ai_response = send_to_openai(info)
-        if ai_response:
-            print(f"OpenAI Response: {ai_response}")
-        else:
-            print("Failed to get a response from OpenAI.")
-    client.subscribe(topic)
-    client.on_message = on_message
-    
-    
-
 def send_to_openai(message):
     try:
         # Send the MQTT message to OpenAI for processing
@@ -54,11 +18,35 @@ def send_to_openai(message):
         print(f"Error interacting with OpenAI: {e}")
         return None
 
-def run():
-    client = connect_mqtt()
-    subscribe(client)
-    client.loop_forever()
-    
-if __name__ == '__main__':
-    run()
 
+# The callback for when the client receives a CONNACK response from the server.
+def on_connect(client, userdata, flags, rc):
+    print("Connected with result code "+str(rc))
+
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    client.subscribe(MQTT_PATH)
+    # The callback for when a PUBLISH message is received from the server.
+
+
+def on_message(client, userdata, msg):
+    # more callbacks, etc
+    # Create a file with write byte permission
+    f = open('output.jpg', "wb")
+    f.write(msg.payload)
+    print("Image Received")
+    message = people.people(f)
+    response = send_to_openai(message)
+    print(response)
+    f.close()
+
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect(MQTT_SERVER, 1883, 60)
+
+# Blocking call that processes network traffic, dispatches callbacks and
+# handles reconnecting.
+# Other loop*() functions are available that give a threaded interface and a
+# manual interface.
+client.loop_forever()
