@@ -1,52 +1,55 @@
+import os
 
 import openai
 import paho.mqtt.client as mqtt
-import people.py
+from PIL import Image
 
-MQTT_SERVER = "mqtt.eclipseprojects.io"  #Write Server IP Address
+import people  # Ensure people.py exists and is importable
+
+MQTT_SERVER = "mqtt.eclipseprojects.io"
 MQTT_PATH = "Image"
-info = ""
-openai.api_key = "API_KEY"
+
+
+# Securely set the OpenAI API key
+openai.api_key = "API Key"
+
 def send_to_openai(message):
     try:
-        # Send the MQTT message to OpenAI for processing
-        response = openai.Completion.create(engine="text-davinci-003",  # Replace with desired model
-            prompt=f"Process this message: {message}",max_tokens=50)
-        # Extract and return the generated response
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Process this message: {message}",
+            max_tokens=50
+        )
         return response.choices[0].text.strip()
     except Exception as e:
         print(f"Error interacting with OpenAI: {e}")
         return None
 
-
-# The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
-
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
+    print(f"Connected with result code {rc}")
     client.subscribe(MQTT_PATH)
-    # The callback for when a PUBLISH message is received from the server.
-
 
 def on_message(client, userdata, msg):
-    # more callbacks, etc
-    # Create a file with write byte permission
-    f = open('output.jpg', "wb")
-    f.write(msg.payload)
-    print("Image Received")
-    message = people.people(f)
-    response = send_to_openai(message)
-    print(response)
-    f.close()
+    if msg.topic == MQTT_PATH:
+        try:
+            with open('output.jpg', 'wb') as f:
+                f.write(msg.payload)
+            print("Image Received")
+            image = Image.open('output.jpg')
+            message = people.people(image)  # Ensure `people.people()` can handle an image object
+            response = send_to_openai(message)
+            print(response)
+        except Exception as e:
+            print(f"Error processing message: {e}")
+    else:
+        print(f"Unexpected topic: {msg.topic}")
 
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
-client.connect(MQTT_SERVER, 1883, 60)
 
-# Blocking call that processes network traffic, dispatches callbacks and
-# handles reconnecting.
-# Other loop*() functions are available that give a threaded interface and a
-# manual interface.
-client.loop_forever()
+try:
+    client.connect(MQTT_SERVER, 1883, 60)
+    client.loop_forever()
+except Exception as e:
+    print(f"Error connecting to MQTT server: {e}")
