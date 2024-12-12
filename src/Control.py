@@ -1,11 +1,11 @@
 import subprocess
 import time
-
+from ipcam import pub
 
 def run_pub():
     """Run the pub.py script."""
     print("Running pub.py...")
-    subprocess.run(["python", "pub.py"], check=True)
+    subprocess.run(["python", ".\\ipcam\\pub.py"], check=True)
 
 def run_stored_data():
     """Run the Stored_Data.py script."""
